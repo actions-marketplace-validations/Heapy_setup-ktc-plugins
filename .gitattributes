@@ -1,0 +1,5 @@
+* text=auto
+*.mjs text eol=lf
+*.yml text eol=lf
+ktc-plugins text eol=lf
+ktc-plugins.bat text eol=crlf

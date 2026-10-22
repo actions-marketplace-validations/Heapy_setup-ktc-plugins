@@ -1,0 +1,14 @@
+{
+  "name": "setup-ktc-plugins",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Restore and verify locked Kotlin Toolchain source plugins in GitHub Actions",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check scripts/setup.mjs",
+    "test:integration": "node test/integration.mjs"
+  },
+  "engines": { "node": ">=22" },
+  "license": "Apache-2.0"
+}

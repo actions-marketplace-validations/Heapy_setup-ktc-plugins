@@ -1,0 +1,78 @@
+name: Kotlin Toolchain Plugins Setup
+description: Restore and verify locked Kotlin Toolchain source plugins with cached, checksum-pinned launchers
+author: Heapy
+branding:
+  icon: package
+  color: purple
+inputs:
+  working-directory:
+    description: Project directory containing committed ktc-plugins launchers and manifests, relative to the workspace
+    default: .
+  cache:
+    description: Cache native installer binaries and source archives
+    default: 'true'
+  cache-read-only:
+    description: 'auto saves on push, workflow_dispatch and schedule; true restores only; false allows saving'
+    default: auto
+  cache-key-suffix:
+    description: Extra cache namespace component for manual invalidation
+    default: ''
+  sync:
+    description: Restore missing plugin sources from the lockfile before verification
+    default: 'true'
+  verify:
+    description: Verify plugin contents, manifests and Git tracking state
+    default: 'true'
+  token:
+    description: GitHub token for plugin repository access; defaults to the workflow token
+    default: ${{ github.token }}
+outputs:
+  version:
+    description: Installer version pinned by the project launcher
+    value: ${{ steps.prepare.outputs.version }}
+  wrapper-path:
+    description: Absolute path to the project launcher for this runner
+    value: ${{ steps.prepare.outputs.wrapper }}
+  cache-hit:
+    description: Whether the exact cache key was restored; empty when caching is disabled
+    value: ${{ steps.cache.outputs.cache-hit || steps.restore.outputs.cache-hit }}
+runs:
+  using: composite
+  steps:
+    - name: Prepare pinned plugin launcher
+      id: prepare
+      shell: bash
+      env:
+        ACTION_DIRECTORY: ${{ github.action_path }}
+        INPUT_DIRECTORY: ${{ inputs.working-directory }}
+        INPUT_CACHE: ${{ inputs.cache }}
+        INPUT_CACHE_READ_ONLY: ${{ inputs.cache-read-only }}
+        INPUT_CACHE_SUFFIX: ${{ inputs.cache-key-suffix }}
+        INPUT_SYNC: ${{ inputs.sync }}
+        INPUT_VERIFY: ${{ inputs.verify }}
+      run: node "$ACTION_DIRECTORY/scripts/setup.mjs" prepare
+    - name: Restore plugin caches
+      id: cache
+      if: steps.prepare.outputs.cache-enabled == 'true' && steps.prepare.outputs.cache-read-only == 'false'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ${{ steps.prepare.outputs.cache-path }}
+        key: ${{ steps.prepare.outputs.cache-key }}
+        restore-keys: ${{ steps.prepare.outputs.cache-prefix }}
+    - name: Restore plugin caches without saving
+      id: restore
+      if: steps.prepare.outputs.cache-enabled == 'true' && steps.prepare.outputs.cache-read-only == 'true'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ${{ steps.prepare.outputs.cache-path }}
+        key: ${{ steps.prepare.outputs.cache-key }}
+        restore-keys: ${{ steps.prepare.outputs.cache-prefix }}
+    - name: Restore and verify locked plugins
+      shell: bash
+      env:
+        ACTION_DIRECTORY: ${{ github.action_path }}
+        INPUT_DIRECTORY: ${{ inputs.working-directory }}
+        INPUT_SYNC: ${{ inputs.sync }}
+        INPUT_VERIFY: ${{ inputs.verify }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: node "$ACTION_DIRECTORY/scripts/setup.mjs" restore

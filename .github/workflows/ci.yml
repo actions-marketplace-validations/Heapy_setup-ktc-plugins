@@ -1,0 +1,38 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - run: npm run check
+      - run: npm test
+      - name: Exercise the composite action
+        id: plugins
+        uses: ./
+        with:
+          working-directory: test/fixtures/consumer
+      - name: Verify outputs
+        shell: bash
+        env:
+          VERSION: ${{ steps.plugins.outputs.version }}
+          WRAPPER: ${{ steps.plugins.outputs.wrapper-path }}
+        run: |
+          test "$VERSION" = '0.3.1'
+          test -f "$WRAPPER"
+      - run: npm run test:integration
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
